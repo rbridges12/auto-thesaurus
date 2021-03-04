@@ -14,7 +14,6 @@
 import requests
 import json
 import os
-import string
 
 
 # read API key from local txt file
@@ -29,7 +28,12 @@ def get_syns(word):
     key_data = {'key': key}
     request = requests.get(url, params=key_data)
 
-    return request.json()[0]['meta']['syns']
+    # if the API can't find any synonyms, return 0
+    try:
+        return request.json()[0]['meta']['syns']
+
+    except:
+        return -1
 
 
 # load the thesaurus dictionary from JSON file
@@ -69,31 +73,41 @@ def main():
 
                 # remove punctuation from word to prevent duplicate dictionary entries
                 stripped_word = word.translate(
-                    None, '",.:;()#!$%&*+-/<=>?@[]_~')
+                    str.maketrans('', '', '",.:;()#!$%&*+-/<=>?@[]_~'))
 
                 # if the word shouldn't be changed, add it directly to the output
                 if stripped_word in no_change:
                     fout.write(word + ' ')
+                    continue
 
-                else:
-                    # if the word isn't already in the dictionary, make an API request
-                    # to put it in
-                    if stripped_word not in syns:
-                        syns[stripped_word] = get_syns(stripped_word)
+                # if the word isn't already in the dictionary, make an API request
+                # to put it in. If the request fails, add the word directly to output
+                if stripped_word not in syns:
+                    result = get_syns(stripped_word)
+                    if result == -1:
+                        no_change.append(stripped_word)
+                        fout.write(word + ' ')
+                        continue
 
-                    # get a synonym from the list
-                    synonym = syns[stripped_word][0][get_syn_index()]
+                    syns[stripped_word] = result
 
-                    # put a period in if the original word had it
-                    if word[-1] == '.':
-                        synonym += '.'
+                # get a synonym from the list
+                synonym = syns[stripped_word][0][get_syn_index()]
 
-                    fout.write(synonym + ' ')
+                # put a period in if the original word had it
+                if word[-1] == '.':
+                    synonym += '.'
+
+                fout.write(synonym + ' ')
 
             fout.write('\n')
 
+    # save synonym and no_change to their JSON files
     with open('thesaurus.json', 'w') as f:
         json.dump(syns, f)
+
+    with open('no_change.json', 'w') as f:
+        json.dump(no_change, f)
 
 
 main()
