@@ -14,7 +14,11 @@
 import requests
 import json
 import os
+import random
 
+
+TRANSLATE_PROBABILITY = 0.5
+PUNCTUATION = '",.:;()#!$%&*+-/<=>?@[]_~'
 
 # read API key from local txt file
 with open('key.txt', 'r') as f:
@@ -56,9 +60,13 @@ def load_no_change():
 
 
 # return the index corresponding to the synonym to be chosen
-# TODO: make random
-def get_syn_index():
-    return 0
+def get_syn_index(length):
+    return random.randrange(0, length)
+
+
+def should_translate():
+    r = random.random()
+    return r < TRANSLATE_PROBABILITY
 
 
 # replace every word in the input file (except for those in no_change)
@@ -71,9 +79,13 @@ def main():
         for line in fin:
             for word in line.split():
 
+                if not should_translate:
+                    fout.write(word + ' ')
+                    continue
+
                 # remove punctuation from word to prevent duplicate dictionary entries
                 stripped_word = word.translate(
-                    str.maketrans('', '', '",.:;()#!$%&*+-/<=>?@[]_~'))
+                    str.maketrans('', '', PUNCTUATION))
 
                 # if the word shouldn't be changed, add it directly to the output
                 if stripped_word in no_change:
@@ -92,7 +104,9 @@ def main():
                     syns[stripped_word] = result
 
                 # get a synonym from the list
-                synonym = syns[stripped_word][0][get_syn_index()]
+                syn_list = syns[stripped_word][0]
+                i = get_syn_index(len(syn_list))
+                synonym = syn_list[i]
 
                 # put a period in if the original word had it
                 if word[-1] == '.':
